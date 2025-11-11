@@ -1,0 +1,189 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{setspace}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{caption}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{colortbl}
+
+\geometry{margin=2.5cm}
+\setstretch{1.25}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!70!black,
+    urlcolor=blue!70!black
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rfoot{\thepage}
+\lhead{Tarea 2 - Sistemas Operativos}
+\rhead{Universidad del Bío-Bío | Sección 1}
+
+\definecolor{lightgray}{gray}{0.95}
+\definecolor{softblue}{RGB}{219,230,255}
+\definecolor{tablehead}{RGB}{0,76,153}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    backgroundcolor=\color{lightgray},
+    frame=single,
+    rulecolor=\color{gray!60},
+    keywordstyle=\color{blue!60!black}\bfseries,
+    commentstyle=\color{gray!90},
+    stringstyle=\color{purple!70!black}
+}
+
+\begin{document}
+
+% PORTADA
+\begin{titlepage}
+    \centering
+    \vspace*{1cm}
+    {\Large \textbf{Universidad del Bío-Bío}}\\[0.3cm]
+    {\large Ingeniería Civil en Informática}\\[1.5cm]
+
+    \rule{\linewidth}{0.6pt}\\[0.5cm]
+    {\huge \bfseries Tarea 2: Sistema de Votación con nSystem}\\[0.4cm]
+    \rule{\linewidth}{0.6pt}\\[2cm]
+
+    {\Large \textbf{Curso:} Sistemas Operativos – S2 2025}\\[0.3cm]
+    {\Large \textbf{Sección:} 1}\\[2cm]
+
+    {\large \textbf{Integrantes:}}\\[0.3cm]
+    {\large Alejandro Ortiz Ortega}\\
+    {\large Antonia Merino Troncoso}\\
+    {\large Beatriz Durán Carrasco}\\[1cm]
+
+    {\large \textbf{Profesor:}}\\[0.3cm]
+    {\large Luis Gajardo}\\[2cm]
+
+    \vfill
+    {\large Chillán, Noviembre de 2025}
+\end{titlepage}
+
+% INDICE
+\tableofcontents
+\newpage
+
+% ENUNCIADO
+\section{Enunciado}
+El objetivo de la tarea fue implementar, en lenguaje \textbf{ANSI C}, un programa que utiliza la librería \textbf{nSystem} para gestionar la votación de múltiples tareas concurrentes mediante paso de mensajes.  
+El sistema debía coordinar el envío y conteo de votos sin usar semáforos ni monitores, únicamente funciones como \texttt{nSend()}, \texttt{nReceive()}, \texttt{nReply()} y \texttt{nEmitTask()}.
+
+\subsection*{Descripción general}
+Se debían crear tres funciones principales:
+\begin{itemize}
+    \item \texttt{votar(Escrutador esc, int voto)}: envía el voto (0 o 1) al escrutador.
+    \item \texttt{entregarResultados(Escrutador esc, int resultados[])}: espera a que todas las tareas hayan votado y devuelve el conteo total.
+    \item \texttt{fabricarEscrutador(int N)}: crea la estructura de datos y lanza la tarea servidor que administra la votación.
+\end{itemize}
+
+Además, el escrutador debía decidir la opción ganadora en cuanto una de las dos alcanzara mayoría (\( N/2 + 1 \)), sin esperar a que todas las tareas votaran.
+
+\newpage
+
+% SOLUCION
+\section{Solución}
+La solución se desarrolló completamente en \textbf{ANSI C}, utilizando el modelo de comunicación por mensajes de nSystem.  
+Se definió una estructura interna para el escrutador, que almacena los votos recibidos, el número total de votantes, el estado de la votación y un puntero a la tarea servidor.
+
+\subsection*{Estructura del Escrutador}
+\begin{lstlisting}[language=C]
+typedef struct {
+  int n;
+  int votos0;
+  int votos1;
+  int recibidos;
+  int decidido;
+  int ganador;
+  nTask tarea;
+} _Escrutador, *Escrutador;
+\end{lstlisting}
+
+\newpage
+
+\subsection*{Comunicación entre tareas}
+Cada votante se comunica con el escrutador mediante mensajes.  
+El servidor recibe los votos, los contabiliza y responde con el resultado actual una vez que se alcanza mayoría o empate.  
+Para evitar bloqueo activo, se emplea \texttt{nSleep()} con un retardo corto cuando se espera la llegada de los votos restantes.
+
+\begin{lstlisting}[language=C, caption={Fragmento del servidor del escrutador}]
+if (msg.tipo == 0) { // Mensaje de voto
+    esc->recibidos++;
+    if (msg.voto == 0)
+        esc->votos0++;
+    else
+        esc->votos1++;
+
+    if (!esc->decidido) {
+        int mayoria = esc->n / 2 + 1;
+        if (esc->votos0 >= mayoria) esc->ganador = 0;
+        else if (esc->votos1 >= mayoria) esc->ganador = 1;
+        else if (esc->recibidos == esc->n &&
+                 esc->votos0 == esc->votos1)
+            esc->ganador = -1;
+    }
+    nReply(from, &(esc->ganador), sizeof(int));
+}
+\end{lstlisting}
+
+\subsection*{Prueba con el verificador}
+El programa fue probado con el archivo \texttt{verificador.c} entregado por los docentes.  
+La salida esperada se obtuvo correctamente:
+
+\begin{verbatim}
+Votando 1
+Votando 1
+Votando 0
+Votando 1
+Resultado decidido!
+votos 0=1, votos 1=4
+Ok, su tarea funciona correctamente
+\end{verbatim}
+
+\newpage
+
+% ANALISIS Y RESULTADOS
+\section{Análisis y resultados}
+La implementación cumple todos los requisitos del enunciado:
+\begin{itemize}
+    \item Utiliza solo funciones del API de mensajes de nSystem.
+    \item Resuelve correctamente la sincronización entre tareas concurrentes.
+    \item Determina la mayoría sin necesidad de esperar todos los votos.
+    \item Bloquea adecuadamente la entrega de resultados hasta recibir todas las votaciones.
+\end{itemize}
+
+El sistema es modular, fácil de leer y mantiene compatibilidad total con el estándar ANSI C.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.9\textwidth]{votacion.png}
+\caption{Representación del flujo de votación entre tareas.}
+\end{figure}
+
+\newpage
+
+% CONCLUSION
+\section{Conclusión}
+La Tarea 2 permitió poner en práctica conceptos de \textbf{concurrencia} y \textbf{sincronización de procesos} aplicados al entorno educativo de nSystem.  
+Se comprobó cómo el intercambio de mensajes puede coordinar correctamente la ejecución de tareas concurrentes sin requerir primitivas de sincronización explícitas.
+
+La experiencia ayudó a consolidar la comprensión del modelo de hilos de usuario y del rol del sistema operativo en la gestión de procesos cooperativos.  
+El resultado fue un sistema estable, eficiente y ajustado a las especificaciones del enunciado.
+
+\vspace{0.5cm}
+\noindent\textbf{Universidad del Bío-Bío – Ingeniería Civil en Informática}
+
+\end{document}
