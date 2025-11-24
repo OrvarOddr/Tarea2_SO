@@ -1,24 +1,14 @@
 // Tarea 2 - Sistemas Operativos 2025
-// Integrantes: Alejandro Ortiz - Beatriz Durán - Antonia Merino
-// Profesores: Luis Gajardo / Martita Muñoz
+// Integrantes: Alejandro Ortiz - Beatriz Duran - Antonia Merino
+// Profesores: Luis Gajardo / Martita Munoz
 // ------------------------------------------------------------
-// Implementación de un sistema de votación usando mensajes.
+// Implementacion de un sistema de votacion usando mensajes.
 // Cada tarea vota 0 o 1, y el escrutador devuelve el resultado
-// apenas una opción alcanza mayoría. En caso de empate devuelve -1.
+// apenas una opcion alcanza mayoria. En caso de empate devuelve -1.
 // ------------------------------------------------------------
 
 #include "nSystem.h"
 #include "escrutador.h"
-
-typedef struct {
-  int n;           // total de votantes
-  int votos0;
-  int votos1;
-  int recibidos;
-  int decidido;
-  int ganador;     // 0, 1 o -1 si empate
-  nTask tarea;     // tarea del escrutador
-} _Escrutador, *Escrutador;
 
 typedef struct {
   int tipo;        // 0 = voto, 1 = resultados, 2 = destruir
@@ -29,7 +19,7 @@ typedef struct {
 static void servidor(Escrutador esc);
 
 Escrutador fabricarEscrutador(int N) {
-  Escrutador esc = (Escrutador) nMalloc(sizeof(_Escrutador));
+  Escrutador esc = (Escrutador) nMalloc(sizeof(*esc));
   esc->n = N;
   esc->votos0 = 0;
   esc->votos1 = 0;
@@ -75,6 +65,7 @@ static void servidor(Escrutador esc) {
     else if (msg.tipo == 1) { // entregarResultados()
       while (esc->recibidos < esc->n)
         nSleep(100); // espera corta
+
       msg.resultados[0] = esc->votos0;
       msg.resultados[1] = esc->votos1;
       nReply(from, NULL, 0);
